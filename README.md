@@ -7,7 +7,7 @@
 ## 特性
 
 - **注入式连接**：`Config.Connections` 静态注册，和 `embedRedisClient` 一致；没有“新建连接”入口。
-- **左侧树**：连接 → 数据库 → 表（懒加载）；选中数据源/库即加载表名补全。
+- **左侧树**：连接 → 数据库 → 表（懒加载）；选中数据源会自动展开第一个库/schema 并加载表名补全。
 - **多查询页签**：Navicat 风格，新建/关闭/切换，每个页签独立 SQL；新建页签继承当前数据源，SQL 持久化到 localStorage。
 - **右上 SQL 控制台**：CodeMirror 5 SQL 模式，Ctrl+Enter 执行，Ctrl+Space 补全（关键字/函数/表名/当前表列名）。
 - **右下结果区**：数据 / 结构 / 消息 三个 tab；数据网格最多 1000 行（可配）。默认 SQL 输入占 3/4、结果占 1/4，分隔条可拖动。
@@ -100,6 +100,23 @@ func (p provider) SelectTable(ctx context.Context, db, table string, limit int) 
 
 启动时把 `DatabaseManager.GetSourceList()` 转成 `[]sqlui.Connection` 静态注册即可。
 
+## PostgreSQL 示例（datacenterDB）
+
+`example/` 除 SQLite 外，还注册了一个 `datacenterDB`（PostgreSQL）连接，配置直接写死在
+`example/main.go`（仅用于本地演示，**不要把这份凭据带到其他环境**）：
+
+```text
+host=YOUR_POSTGRES_HOST port=5432 user=postgres dbname=YOUR_POSTGRES_DBNAME
+sslmode=disable search_path=YOUR_POSTGRES_SCHEMA TimeZone=Asia/Shanghai
+```
+
+- Provider 实现在 `example/postgres.go`（`database/sql` + `github.com/lib/pq`，只有 example 依赖它）。
+- 元数据查询（schema / 表 / 列 / 主键 / 注释）参考了 `sys_api_service` 的 `PostgresQueryExecutor`。
+- `GetDatabases` 返回 **schema**；`current_schema()`（即 `search_path` 的第一个 `<schema>`）排在最前，树会自动展开它。
+- SQL 控制台按 DSN 的 `search_path` 执行；表数据预览会用选中的 schema 限定表名（`"<schema>"."table"`）。
+- `strictCreateMode` 是 GORM 的迁移保护，不影响这里的原始 SQL；控制台能执行什么由数据库账号权限决定。
+- 数据库暂时不可达时 example 仍会启动，连接保留，打开树时返回错误；其他连接不受影响。
+
 ## 端点
 
 | 方法 | 路径 | 作用 |
@@ -125,7 +142,7 @@ npm install
 npm run subset-icons
 npm run build
 
-# 示例（SQLite，写 demo.db）
+# 示例（SQLite 写 demo.db + datacenterDB/PostgreSQL）
 go run ./example
 ```
 
@@ -145,6 +162,7 @@ docker compose down -v      # 停止并删除数据卷
 
 - 容器内监听 `:8081`，宿主映射 `8082`。
 - SQLite 数据在命名卷 `sqlui-data`（`/data/demo.db`），重启不丢。
+- 镜像同时包含 `datacenterDB`（PostgreSQL）示例连接；容器需要能解析并访问 `YOUR_POSTGRES_HOST:5432`。如果容器 DNS 不通，可在 compose 里加 `extra_hosts` 或改用宿主网络。
 - 可通过环境变量覆盖：`SQLUI_ADDR`（监听地址）、`SQLUI_DB`（数据库文件）。
 
 ## 目录
@@ -153,5 +171,5 @@ docker compose down -v      # 停止并删除数据卷
 embedSqlClient/
   sqlui/           # 库核心：接口、HTTP 端点、*sql.Rows 序列化、embed
     web/           # Vue2 前端（Vite + Element UI + CodeMirror + vxe-table）
-  example/         # SQLite Provider 参考实现（database/sql + mattn/go-sqlite3）
+  example/         # SQLite + PostgreSQL Provider 参考实现（database/sql）
 ```

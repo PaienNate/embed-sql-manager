@@ -77,11 +77,14 @@ export default {
     tableKey(conn, db, table) {
       return conn.id + '|' + db + '|' + table;
     },
-    maybeSelectSingleDatabase(conn) {
+    maybeSelectDefaultDatabase(conn) {
       const dbs = this.databases[conn.id] || [];
-      if (dbs.length !== 1) {
+      if (!dbs.length) {
         return;
       }
+      // Auto-open the first database/schema so completion has metadata right
+      // after selecting the connection. PostgreSQL GetDatabases sorts
+      // current_schema() (the DSN search_path) first.
       const db = dbs[0];
       this.$set(this.expandedDb, this.dbKey(conn, db), true);
       this.$emit('select-database', { connection: conn, database: db });
@@ -118,7 +121,7 @@ export default {
       this.activeDbKey = '';
       this.$emit('select-connection', { connection: conn });
       if (this.databases[conn.id]) {
-        this.maybeSelectSingleDatabase(conn);
+        this.maybeSelectDefaultDatabase(conn);
         return;
       }
       if (!this.loading[conn.id]) {
@@ -127,7 +130,7 @@ export default {
           const list = Array.isArray(dbs) ? dbs : [];
           this.$set(this.databases, conn.id, list);
           this.$set(this.loading, conn.id, false);
-          this.maybeSelectSingleDatabase(conn);
+          this.maybeSelectDefaultDatabase(conn);
         }).catch((e) => {
           this.$set(this.loading, conn.id, false);
           this.$message.error(e.message);
