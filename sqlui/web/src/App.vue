@@ -53,7 +53,6 @@
           :loading="queryLoading"
           :table="activeTable"
           @refresh="reloadTable"
-          @imported="onImported"
         />
       </div>
 
@@ -456,23 +455,6 @@ export default {
       if (this.activeTable) {
         this.openTable(this.activeTable);
       }
-    },
-    onImported(payload) {
-      if (!payload || !payload.columns) {
-        return;
-      }
-      this.result = {
-        error: null,
-        columns: payload.columns,
-        rows: payload.rows || [],
-        rowCount: (payload.rows || []).length,
-        elapsedMs: 0,
-        truncated: false,
-      };
-      this.structure = [];
-      this.activeTable = null;
-      this.message = '已导入本地数据（只读）';
-      this.saveActiveTab();
     },
     pickImportSQL() {
       if (!this.$refs.sqlFile) {

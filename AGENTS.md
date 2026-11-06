@@ -36,7 +36,7 @@ cd sqlui/web && npm install && npm run subset-icons && npm run build
 7. **不暴露凭据**：接口不传 DSN/password；`Connection.Type` 只用于显示。
 8. **IE11**：Vite legacy 构建；避免 CSS 变量作为关键布局、flex `gap` 作为关键间距；图标走 `scripts/subset-fontawesome.js` 子集流程。
 9. **SQL 补全**：`hintTables` 的值必须是数组（未知列用 `[]`，不能用 `null`）——CodeMirror `sql-hint` 的 `wrapTable` 会对 `null` 读 `.text` 直接报错。新建查询页签继承当前 `connection/database/hintTables`。
-10. **页签/布局持久化**：`sqlui_query_tabs` / `sqlui_active_tab` 存页签 SQL，`sqlui_sidebar_width` / `sqlui_console_height` 存布局；结果集不持久化。导入导出是纯前端行为，后端端点不变。
+10. **页签/布局持久化**：`sqlui_query_tabs` / `sqlui_active_tab` 存页签 SQL，`sqlui_sidebar_width` / `sqlui_console_height` 存布局；结果集不持久化。结果导出/查询页签导入导出是纯前端行为，后端端点不变。不做“数据导入到表”（容易误解为写库）。
 
 ## 提交规范
 

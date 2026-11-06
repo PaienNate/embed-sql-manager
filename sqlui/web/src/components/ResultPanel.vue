@@ -19,9 +19,6 @@
             <el-button v-if="columns.length" size="mini" @click="exportJSON">
               <i class="fa fa-download"></i> JSON
             </el-button>
-            <el-button size="mini" @click="pickImport">
-              <i class="fa fa-upload"></i> 导入数据
-            </el-button>
           </div>
 
           <div v-if="isExecResult" class="exec-message">
@@ -60,9 +57,6 @@
           <div v-else class="empty-state">
             <i class="fa fa-table"></i>
             <p>选择左侧的表，或在上方执行 SQL</p>
-            <el-button size="mini" @click="pickImport">
-              <i class="fa fa-upload"></i> 导入本地数据
-            </el-button>
           </div>
         </div>
       </el-tab-pane>
@@ -86,25 +80,12 @@
         <pre class="message-box">{{ message || '暂无消息' }}</pre>
       </el-tab-pane>
     </el-tabs>
-    <input
-      ref="dataFile"
-      type="file"
-      accept=".csv,.json,text/csv,application/json"
-      style="display:none"
-      @change="onImportFile">
   </div>
 </template>
 
 <script>
 import { VxeTable, VxeColumn } from 'vxe-table';
-import {
-  downloadText,
-  readFileText,
-  parseCSV,
-  parseJSONResult,
-  toCSV,
-  toJSON,
-} from '../lib/file';
+import { downloadText, toCSV, toJSON } from '../lib/file';
 
 export default {
   components: { VxeTable, VxeColumn },
@@ -169,33 +150,6 @@ export default {
         name + '.json',
         'application/json;charset=utf-8',
       );
-    },
-    pickImport() {
-      if (!this.$refs.dataFile) {
-        return;
-      }
-      this.$refs.dataFile.value = '';
-      this.$refs.dataFile.click();
-    },
-    onImportFile(e) {
-      const file = e.target.files && e.target.files[0];
-      if (!file) {
-        return;
-      }
-      readFileText(file).then((text) => {
-        let parsed;
-        if (/\.json$/i.test(file.name)) {
-          parsed = parseJSONResult(text);
-        } else if (/\.csv$/i.test(file.name)) {
-          parsed = parseCSV(text);
-        } else {
-          parsed = /^\s*[\[{]/.test(text) ? parseJSONResult(text) : parseCSV(text);
-        }
-        this.$emit('imported', parsed);
-        this.$message.success('已导入本地数据（只读）');
-      }).catch((err) => {
-        this.$message.error(err.message || String(err));
-      });
     },
   },
 };
