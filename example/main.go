@@ -13,6 +13,10 @@ func main() {
 	if dbPath == "" {
 		dbPath = "demo.db"
 	}
+	addr := os.Getenv("SQLUI_ADDR")
+	if addr == "" {
+		addr = ":8081"
+	}
 	p, err := openSQLite(dbPath)
 	if err != nil {
 		log.Fatalf("open sqlite: %v", err)
@@ -41,6 +45,6 @@ func main() {
 		http.Redirect(w, r, "/sqlui/", http.StatusFound)
 	})
 
-	log.Println("SQL UI available at http://localhost:8081/sqlui/")
-	log.Fatal(http.ListenAndServe(":8081", mux))
+	log.Println("SQL UI available at http://localhost" + addr + "/sqlui/")
+	log.Fatal(http.ListenAndServe(addr, mux))
 }

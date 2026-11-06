@@ -1,0 +1,8 @@
+.git
+.gitignore
+node_modules
+sqlui/web/node_modules
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3

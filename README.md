@@ -137,6 +137,24 @@ npm run build
 go run ./example
 ```
 
+## Docker 运行
+
+仓库根目录提供了 `Dockerfile`（多阶段构建，CGO 编译 SQLite 驱动）和 `docker-compose.yml`：
+
+```bash
+docker compose up -d --build
+# 打开 http://127.0.0.1:8082/sqlui/
+# 或宿主网段：http://172.21.4.31:8082/sqlui/  http://100.78.41.39:8082/sqlui/
+
+docker compose logs -f      # 查看日志
+docker compose down         # 停止
+docker compose down -v      # 停止并删除数据卷
+```
+
+- 容器内监听 `:8081`，宿主映射 `8082`。
+- SQLite 数据在命名卷 `sqlui-data`（`/data/demo.db`），重启不丢。
+- 可通过环境变量覆盖：`SQLUI_ADDR`（监听地址）、`SQLUI_DB`（数据库文件）。
+
 ## 目录
 
 ```

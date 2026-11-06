@@ -1,0 +1,17 @@
+services:
+  sqlui:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: embed-sql-ui
+    restart: unless-stopped
+    ports:
+      - "8082:8081"
+    environment:
+      SQLUI_ADDR: ":8081"
+      SQLUI_DB: "/data/demo.db"
+    volumes:
+      - sqlui-data:/data
+
+volumes:
+  sqlui-data:
