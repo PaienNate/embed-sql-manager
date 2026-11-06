@@ -1,0 +1,407 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+  color: #1f2937;
+  background: #f5f7fb;
+  font-size: 13px;
+}
+
+.sqlui-app {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* ---- sidebar ---------------------------------------------------------- */
+.sqlui-sidebar {
+  width: 264px;
+  min-width: 220px;
+  background: #ffffff;
+  border-right: 1px solid #e5e7eb;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-header {
+  height: 52px;
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  border-bottom: 1px solid #e5e7eb;
+  font-weight: 600;
+  color: #111827;
+}
+
+.sidebar-header .fa-database {
+  color: #2563eb;
+  margin-right: 8px;
+}
+
+.sidebar-header .version {
+  margin-left: auto;
+  font-size: 11px;
+  color: #9ca3af;
+  font-weight: 400;
+}
+
+.tree {
+  flex: 1;
+  overflow: auto;
+  padding: 6px 0;
+}
+
+.tree-row {
+  display: flex;
+  align-items: center;
+  height: 30px;
+  padding: 0 10px;
+  cursor: pointer;
+  font-size: 13px;
+  color: #374151;
+  white-space: nowrap;
+}
+
+.tree-row:hover {
+  background: #f3f4f6;
+}
+
+.tree-row.active {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.tree-row .fa {
+  width: 14px;
+  text-align: center;
+  margin-right: 6px;
+  color: #6b7280;
+}
+
+.tree-row .tree-label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tree-row .tree-badge {
+  font-size: 10px;
+  color: #6b7280;
+  background: #f3f4f6;
+  border-radius: 8px;
+  padding: 1px 6px;
+  margin-left: 6px;
+}
+
+.conn-row {
+  font-weight: 600;
+}
+
+.db-row {
+  padding-left: 26px;
+}
+
+.table-row {
+  padding-left: 46px;
+}
+
+.tree-empty {
+  padding: 12px 14px;
+  color: #9ca3af;
+  font-size: 12px;
+}
+
+.sidebar-footer {
+  height: 28px;
+  line-height: 28px;
+  padding: 0 14px;
+  border-top: 1px solid #e5e7eb;
+  font-size: 11px;
+  color: #9ca3af;
+}
+
+/* ---- main ------------------------------------------------------------- */
+.sqlui-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.main-top {
+  height: 270px;
+  min-height: 180px;
+  background: #ffffff;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.main-bottom {
+  flex: 1;
+  min-height: 0;
+  background: #ffffff;
+}
+
+.sqlui-statusbar {
+  height: 26px;
+  line-height: 26px;
+  padding: 0 12px;
+  border-top: 1px solid #e5e7eb;
+  background: #fafafa;
+  font-size: 11px;
+  color: #6b7280;
+  display: flex;
+}
+
+.status-right {
+  margin-left: auto;
+}
+
+.status-right .version {
+  margin-left: 14px;
+  color: #9ca3af;
+}
+
+/* ---- sql console ------------------------------------------------------ */
+.sql-console {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.console-toolbar {
+  height: 42px;
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  border-bottom: 1px solid #eef2f7;
+}
+
+.console-title {
+  display: flex;
+  align-items: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.console-title .fa-terminal {
+  color: #2563eb;
+  margin-right: 7px;
+}
+
+.console-conn {
+  margin-left: 12px;
+  font-weight: 400;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.console-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+}
+
+.console-hint {
+  font-size: 11px;
+  color: #9ca3af;
+  margin-left: 10px;
+}
+
+.console-editor {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.console-editor .CodeMirror {
+  height: 100%;
+  font-size: 13px;
+}
+
+/* ---- result panel ----------------------------------------------------- */
+.result-panel {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.result-tabs {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.result-tabs > .el-tabs__header {
+  margin: 0;
+  padding: 0 10px;
+}
+
+.result-tabs > .el-tabs__content {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  padding: 0;
+}
+
+.result-tabs .el-tab-pane {
+  height: 100%;
+}
+
+.result-pane {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.result-toolbar {
+  height: 36px;
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  border-bottom: 1px solid #eef2f7;
+  font-size: 12px;
+  color: #374151;
+}
+
+.result-table-name {
+  font-weight: 600;
+  color: #111827;
+  display: flex;
+  align-items: center;
+}
+
+.result-table-name .fa {
+  color: #2563eb;
+  margin-right: 6px;
+}
+
+.result-warn {
+  margin-left: 10px;
+  color: #d97706;
+}
+
+.result-toolbar .spacer {
+  flex: 1;
+}
+
+.grid-wrap {
+  flex: 1;
+  min-height: 0;
+}
+
+.grid-wrap .vxe-table {
+  height: 100%;
+}
+
+.cell-null {
+  color: #9ca3af;
+  font-style: italic;
+}
+
+.cell-binary {
+  color: #9ca3af;
+}
+
+.exec-message {
+  padding: 18px;
+  color: #059669;
+  font-size: 13px;
+}
+
+.exec-message .fa {
+  margin-right: 6px;
+}
+
+.empty-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #9ca3af;
+}
+
+.empty-state .fa {
+  font-size: 34px;
+  margin-bottom: 12px;
+  color: #d1d5db;
+}
+
+.empty-state p {
+  margin: 0;
+  font-size: 13px;
+}
+
+.structure-wrap {
+  height: 100%;
+  padding: 6px;
+}
+
+.message-box {
+  margin: 0;
+  padding: 12px;
+  height: 100%;
+  overflow: auto;
+  white-space: pre-wrap;
+  font-size: 12px;
+  color: #374151;
+  background: #fafafa;
+}
+
+.danger-text {
+  color: #dc2626 !important;
+}
+
+.field-type {
+  margin-left: 8px;
+  font-size: 11px;
+  color: #9ca3af;
+}
+
+.dialog-fields {
+  max-height: 60vh;
+  overflow: auto;
+  padding-right: 6px;
+}
+
+.dialog-field-row {
+  display: flex;
+  align-items: center;
+}
+
+.dialog-field-row .el-input {
+  flex: 1;
+}
+
+.dialog-field-row .el-checkbox {
+  margin-right: 8px;
+}
+
+.fa-spin {
+  animation: sqlui-spin 1s infinite linear;
+}
+
+@keyframes sqlui-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.el-button--mini {
+  padding: 5px 10px;
+}

@@ -1,0 +1,6 @@
+node_modules/
+.idea/
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3

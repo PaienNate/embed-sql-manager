@@ -1,0 +1,147 @@
+# embedSqlClient
+
+把 SQL 控制台做成**可内嵌的 Go 库**：宿主注入已经实现的 `Provider`（`database/sql`、`sqlx`、`sqlex`、GORM 均可），库在自己的 `http.ServeMux` 前缀下挂载一个同源的 SQL 管理页面。
+
+> 核心 `sqlui` 包**只依赖 Go 标准库**（`database/sql`、`net/http`、`embed`），不引入 GORM、任何 SQL 方言实现或数据库驱动。数据库差异全部由宿主的 `Provider` 实现。
+
+## 特性
+
+- **注入式连接**：`Config.Connections` 静态注册，和 `embedRedisClient` 一致；没有“新建连接”入口。
+- **左侧树**：连接 → 数据库 → 表（懒加载）。
+- **右上 SQL 控制台**：CodeMirror 5 SQL 模式，Ctrl+Enter 执行。
+- **右下结果区**：数据 / 结构 / 消息 三个 tab；数据网格最多 1000 行（可配）。
+- **行编辑**：实现了 `RowEditor` 即可编辑/新增/删除；无主键的表自动禁用更新/删除。
+- **只读降级**：未实现 `ExecProvider` 的连接，SQL 控制台拒绝非查询语句。
+- **IE11**：`@vitejs/plugin-legacy` 产出 ES5 legacy bundle。
+
+## 快速开始
+
+```go
+package main
+
+import (
+	"log"
+	"net/http"
+
+	"embedSqlClient/sqlui"
+)
+
+func main() {
+	mux := http.NewServeMux()
+	err := sqlui.Register(mux, sqlui.Config{
+		Prefix:  "/sqlui",
+		Version: "myapp-1.0.0",
+		Connections: []sqlui.Connection{
+			{
+				ID:       "local",
+				Name:     "Local DB",
+				Type:     "SQLite",
+				Provider: myProvider, // 你实现的 Provider
+				Enabled:  true,
+			},
+		},
+		// Middleware: 你的鉴权中间件（可选，包裹全部路由）
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+	log.Fatal(http.ListenAndServe(":8080", mux)) // 访问 http://localhost:8080/sqlui/
+}
+```
+
+## Provider 接口
+
+```go
+type Provider interface {
+    GetDatabases(ctx context.Context) ([]string, error)
+    GetTables(ctx context.Context, database string) ([]string, error)
+    GetColumns(ctx context.Context, database, table string) ([]ColumnInfo, error)
+    ExecuteSQL(ctx context.Context, sql string) (*sql.Rows, error)
+    SelectTable(ctx context.Context, database, table string, limit int) (*sql.Rows, error)
+}
+```
+
+- `ExecuteSQL`：SQL 控制台执行查询类语句（SELECT/WITH/SHOW/DESCRIBE/EXPLAIN/PRAGMA...）。
+- `SelectTable`：表数据预览；引号和 `LIMIT` 由宿主按方言生成。
+- `GetDatabases` 返回的“数据库”是第二层命名空间（MySQL 的库、Postgres 的 schema、SQLite 的 `main` 等）。
+
+可选接口：
+
+```go
+// 没实现 = SQL 控制台只读
+type ExecProvider interface {
+    ExecSQL(ctx context.Context, sql string) (ExecResult, error)
+}
+
+// 没实现 = 数据网格不可编辑
+type RowEditor interface {
+    PrimaryKeys(ctx context.Context, database, table string) ([]string, error)
+    UpdateRow(ctx context.Context, database, table string, pk, changes map[string]any) (int64, error)
+    InsertRow(ctx context.Context, database, table string, values map[string]any) (int64, error)
+    DeleteRow(ctx context.Context, database, table string, pk map[string]any) (int64, error)
+}
+```
+
+## 接入 sys_api_service（参考）
+
+你的 `pkg/database.QueryExecutor` 已经非常接近这个接口，包一层即可：
+
+```go
+type provider struct{ q database.QueryExecutor }
+
+func (p provider) GetDatabases(ctx context.Context) ([]string, error) { return p.q.GetDatabases(ctx) }
+func (p provider) GetTables(ctx context.Context, db string) ([]string, error) { return p.q.GetTables(ctx, db) }
+func (p provider) GetColumns(ctx context.Context, db, table string) ([]sqlui.ColumnInfo, error) {
+    cols, err := p.q.GetColumns(ctx, db, table)
+    // map database.ColumnInfo -> sqlui.ColumnInfo
+}
+func (p provider) ExecuteSQL(ctx context.Context, sql string) (*sql.Rows, error) { return p.q.ExecuteSQL(ctx, sql) }
+func (p provider) SelectTable(ctx context.Context, db, table string, limit int) (*sql.Rows, error) {
+    gdb, err := p.q.GetDB(ctx)
+    if err != nil { return nil, err }
+    return gdb.Table(table).Limit(limit).Rows()
+}
+// 可选：ExecSQL 用 gdb.Exec；RowEditor 用 gdb.Table(...).Updates/Create/Delete
+```
+
+启动时把 `DatabaseManager.GetSourceList()` 转成 `[]sqlui.Connection` 静态注册即可。
+
+## 端点
+
+| 方法 | 路径 | 作用 |
+|---|---|---|
+| GET | `{prefix}/api/connections` | 连接列表（含 capabilities） |
+| GET | `{prefix}/api/sql/{id}/databases` | 数据库/模式列表 |
+| GET | `{prefix}/api/sql/{id}/tables?database=` | 表列表 |
+| GET | `{prefix}/api/sql/{id}/columns?database=&table=` | 列结构 |
+| GET | `{prefix}/api/sql/{id}/table-data?database=&table=&limit=` | 表数据（≤1000 行） |
+| POST | `{prefix}/api/sql/{id}/query` | 执行 SQL |
+| GET | `{prefix}/api/sql/{id}/primary-keys?database=&table=` | 主键列表（行编辑用） |
+| POST | `{prefix}/api/sql/{id}/row` | 行增删改 |
+
+## 构建与测试
+
+```bash
+# Go（Go 1.23+）
+go build ./...
+go test ./...
+gofmt -l sqlui/ example/
+
+# 前端（dist 已提交，改前端后需重建）
+cd sqlui/web
+npm install
+npm run subset-icons
+npm run build
+
+# 示例（SQLite，写 demo.db）
+go run ./example
+```
+
+## 目录
+
+```
+embedSqlClient/
+  sqlui/           # 库核心：接口、HTTP 端点、*sql.Rows 序列化、embed
+    web/           # Vue2 前端（Vite + Element UI + CodeMirror + vxe-table）
+  example/         # SQLite Provider 参考实现（database/sql + mattn/go-sqlite3）
+```
