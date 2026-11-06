@@ -107,17 +107,33 @@ body {
 }
 
 .db-row {
-  padding-left: 26px;
+  padding-left: 30px;
+}
+
+.group-row {
+  padding-left: 50px;
+  color: #4b5563;
+  font-size: 12px;
 }
 
 .table-row {
-  padding-left: 46px;
+  padding-left: 90px;
+}
+
+.tree-count {
+  margin-left: 6px;
+  font-size: 10px;
+  color: #9ca3af;
 }
 
 .tree-empty {
   padding: 12px 14px;
   color: #9ca3af;
   font-size: 12px;
+}
+
+.tree-empty.table-empty {
+  padding-left: 90px;
 }
 
 .sidebar-footer {

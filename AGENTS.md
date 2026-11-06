@@ -40,6 +40,7 @@ cd sqlui/web && npm install && npm run subset-icons && npm run build
 9. **SQL 补全**：`hintTables` 的值必须是数组（未知列用 `[]`，不能用 `null`）——CodeMirror `sql-hint` 的 `wrapTable` 会对 `null` 读 `.text` 直接报错。新建查询页签继承当前 `connection/database/hintTables`。
 10. **页签/布局持久化**：`sqlui_query_tabs` / `sqlui_active_tab` 存页签 SQL，`sqlui_sidebar_width` / `sqlui_console_height` 存布局；结果集不持久化。结果导出/查询页签导入导出是纯前端行为，后端端点不变。不做“数据导入到表”（容易误解为写库）。
 11. **PostgreSQL 示例**：`GetDatabases` 返回 **schema**（不是集群 database），并把 `current_schema()`（DSN `search_path` 的第一个）排在最前；`ConnectionTree` 会自动展开第一个库/schema 并加载表。SQL 控制台按 DSN 的 `search_path` 执行，表数据预览按选中的 schema 限定表名。`strictCreateMode` 是 GORM 的迁移保护，不在本库生效，控制台能力由数据库账号权限决定。
+12. **左侧树层级**：连接 → 数据库/schema → “表”文件夹 → 表；`.conn-row` / `.db-row` / `.group-row` / `.table-row` 的缩进依次为 10/30/50/90px。表行没有 chevron，所以 `padding-left` 要比“表”文件夹多 40px，否则表名和 schema 名会从同一 x 坐标开始，看起来像没有缩进。
 
 ## 提交规范
 

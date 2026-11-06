@@ -6,7 +6,7 @@
         :class="{ active: activeConnId === conn.id }"
         @click="toggleConnection(conn)">
         <i :class="['fa', isConnOpen(conn) ? 'fa-chevron-down' : 'fa-chevron-right']"></i>
-        <i class="fa fa-database"></i>
+        <i class="fa fa-server"></i>
         <span class="tree-label" :title="conn.name">{{ conn.name }}</span>
         <span v-if="conn.type" class="tree-badge">{{ conn.type }}</span>
         <i v-if="loading[conn.id]" class="fa fa-spinner fa-spin"></i>
@@ -18,21 +18,29 @@
             :class="{ active: activeDbKey === dbKey(conn, db) }"
             @click="toggleDatabase(conn, db)">
             <i :class="['fa', isDbOpen(conn, db) ? 'fa-chevron-down' : 'fa-chevron-right']"></i>
-            <i :class="['fa', isDbOpen(conn, db) ? 'fa-folder-open' : 'fa-folder']"></i>
+            <i class="fa fa-database"></i>
             <span class="tree-label" :title="db">{{ db || '(default)' }}</span>
             <i v-if="loading[dbKey(conn, db)]" class="fa fa-spinner fa-spin"></i>
           </div>
           <div v-if="isDbOpen(conn, db)" class="tree-tables">
-            <div
-              v-for="table in tables[dbKey(conn, db)] || []"
-              :key="table"
-              class="tree-row table-row"
-              :class="{ active: activeKey === tableKey(conn, db, table) }"
-              @click="selectTable(conn, db, table)">
-              <i class="fa fa-table"></i>
-              <span class="tree-label" :title="table">{{ table }}</span>
+            <div class="tree-row group-row" @click.stop="toggleGroup(conn, db)">
+              <i :class="['fa', isGroupOpen(conn, db) ? 'fa-chevron-down' : 'fa-chevron-right']"></i>
+              <i :class="['fa', isGroupOpen(conn, db) ? 'fa-folder-open' : 'fa-folder']"></i>
+              <span class="tree-label">表</span>
+              <span class="tree-count">{{ (tables[dbKey(conn, db)] || []).length }}</span>
             </div>
-            <div v-if="!loading[dbKey(conn, db)] && !(tables[dbKey(conn, db)] || []).length" class="tree-empty">没有表</div>
+            <div v-if="isGroupOpen(conn, db)">
+              <div
+                v-for="table in tables[dbKey(conn, db)] || []"
+                :key="table"
+                class="tree-row table-row"
+                :class="{ active: activeKey === tableKey(conn, db, table) }"
+                @click="selectTable(conn, db, table)">
+                <i class="fa fa-table"></i>
+                <span class="tree-label" :title="table">{{ table }}</span>
+              </div>
+              <div v-if="!loading[dbKey(conn, db)] && !(tables[dbKey(conn, db)] || []).length" class="tree-empty table-empty">没有表</div>
+            </div>
           </div>
         </div>
         <div v-if="!loading[conn.id] && !(databases[conn.id] || []).length" class="tree-empty">没有数据库</div>
@@ -56,6 +64,7 @@ export default {
     return {
       expandedConn: {},
       expandedDb: {},
+      expandedGroup: {},
       databases: {},
       tables: {},
       loading: {},
@@ -70,6 +79,10 @@ export default {
     },
     isDbOpen(conn, db) {
       return !!this.expandedDb[this.dbKey(conn, db)];
+    },
+    isGroupOpen(conn, db) {
+      const v = this.expandedGroup[this.dbKey(conn, db)];
+      return v === undefined ? true : !!v;
     },
     dbKey(conn, db) {
       return conn.id + '|' + db;
@@ -145,6 +158,10 @@ export default {
       this.activeDbKey = key;
       this.$emit('select-database', { connection: conn, database: db });
       this.loadTables(conn, db);
+    },
+    toggleGroup(conn, db) {
+      const key = this.dbKey(conn, db);
+      this.$set(this.expandedGroup, key, !this.isGroupOpen(conn, db));
     },
     selectTable(conn, db, table) {
       this.activeConnId = conn.id;
