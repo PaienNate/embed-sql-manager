@@ -18,7 +18,7 @@
           @click="execute">
           <i class="fa fa-play"></i> 执行
         </el-button>
-        <span class="console-hint">Ctrl+Enter</span>
+        <span class="console-hint">Ctrl+Enter 执行 · Ctrl+Space 补全</span>
       </div>
     </div>
     <div class="console-editor">
@@ -31,11 +31,16 @@
 import CodeMirror from 'codemirror';
 import 'codemirror/lib/codemirror.css';
 import 'codemirror/mode/sql/sql.js';
+import 'codemirror/addon/hint/show-hint';
+import 'codemirror/addon/hint/show-hint.css';
+import 'codemirror/addon/hint/sql-hint';
 
 export default {
   props: {
     connection: { type: Object, default: null },
     database: { type: String, default: '' },
+    table: { type: String, default: '' },
+    hintTables: { type: Object, default: () => ({}) },
     loading: { type: Boolean, default: false },
   },
   data() {
@@ -43,6 +48,17 @@ export default {
       editor: null,
       ro: null,
     };
+  },
+  watch: {
+    hintTables: {
+      handler() {
+        this.applyHintOptions();
+      },
+      deep: true,
+    },
+    table() {
+      this.applyHintOptions();
+    },
   },
   mounted() {
     this.editor = CodeMirror.fromTextArea(this.$refs.textarea, {
@@ -52,12 +68,33 @@ export default {
       indentUnit: 2,
       tabSize: 2,
       viewportMargin: 30,
+      hintOptions: {
+        completeSingle: false,
+        alignWithWord: true,
+        tables: this.hintTables || {},
+        defaultTable: this.table || undefined,
+      },
       extraKeys: {
         'Ctrl-Enter': () => this.execute(),
         'Cmd-Enter': () => this.execute(),
+        'Ctrl-Space': 'autocomplete',
+        'Cmd-Space': 'autocomplete',
       },
     });
     this.editor.setValue('SELECT 1;');
+
+    // Show hints while typing a word (not on every keystroke of a symbol).
+    this.editor.on('change', (cm) => {
+      if (cm.state.completionActive) {
+        return;
+      }
+      const cursor = cm.getCursor();
+      const token = cm.getTokenAt(cursor);
+      if (token && token.string && /^[\w"`]+$/.test(token.string)) {
+        cm.showHint({ completeSingle: false });
+      }
+    });
+
     if (typeof ResizeObserver !== 'undefined') {
       this.ro = new ResizeObserver(() => this.refresh());
       this.ro.observe(this.$el.querySelector('.console-editor'));
@@ -81,6 +118,17 @@ export default {
       if (this.editor) {
         this.editor.refresh();
       }
+    },
+    applyHintOptions() {
+      if (!this.editor) {
+        return;
+      }
+      this.editor.setOption('hintOptions', {
+        completeSingle: false,
+        alignWithWord: true,
+        tables: this.hintTables || {},
+        defaultTable: this.table || undefined,
+      });
     },
     execute() {
       if (!this.editor || !this.connection) {

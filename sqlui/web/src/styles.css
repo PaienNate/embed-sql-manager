@@ -24,8 +24,8 @@ body {
 
 /* ---- sidebar ---------------------------------------------------------- */
 .sqlui-sidebar {
-  width: 264px;
-  min-width: 220px;
+  min-width: 0;
+  flex-shrink: 0;
   background: #ffffff;
   border-right: 1px solid #e5e7eb;
   display: flex;
@@ -137,9 +137,32 @@ body {
   flex-direction: column;
 }
 
+/* ---- resize dividers -------------------------------------------------- */
+.resize-divider {
+  flex-shrink: 0;
+  background: #e5e7eb;
+}
+
+.resize-divider.vertical {
+  width: 4px;
+  cursor: col-resize;
+}
+
+.resize-divider.horizontal {
+  height: 4px;
+  cursor: row-resize;
+}
+
+.resize-divider:hover {
+  background: #2563eb;
+}
+
+.sqlui-app.is-resizing .resize-divider {
+  background: #2563eb;
+}
+
 .main-top {
-  height: 270px;
-  min-height: 180px;
+  flex-shrink: 0;
   background: #ffffff;
   border-bottom: 1px solid #e5e7eb;
 }

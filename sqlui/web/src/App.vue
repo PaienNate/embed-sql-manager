@@ -1,6 +1,6 @@
 <template>
-  <div class="sqlui-app">
-    <aside class="sqlui-sidebar">
+  <div class="sqlui-app" :class="{ 'is-resizing': resizing }">
+    <aside class="sqlui-sidebar" :style="{ width: sidebarWidth + 'px' }">
       <div class="sidebar-header">
         <i class="fa fa-database"></i>
         <span>SQL Console</span>
@@ -10,17 +10,25 @@
       <div class="sidebar-footer">{{ connections.length }} 个连接</div>
     </aside>
 
+    <div class="resize-divider vertical" @mousedown.prevent="startResize('sidebar', $event)"></div>
+
     <main class="sqlui-main">
-      <div class="main-top">
+      <div class="main-top" :style="{ height: consoleHeight + 'px' }">
         <SqlConsole
           :connection="activeConnection"
           :database="activeDatabase"
+          :table="activeTable ? activeTable.table : ''"
+          :hint-tables="hintTables"
           :loading="queryLoading"
           @execute="runSQL"
         />
       </div>
+
+      <div class="resize-divider horizontal" @mousedown.prevent="startResize('console', $event)"></div>
+
       <div class="main-bottom">
         <ResultPanel
+          ref="resultPanel"
           :result="result"
           :structure="structure"
           :message="message"
@@ -32,6 +40,7 @@
           @row-saved="reloadTable"
         />
       </div>
+
       <footer class="sqlui-statusbar">
         <span v-if="activeConnection">
           {{ activeConnection.name }}
@@ -56,6 +65,10 @@ import SqlConsole from './components/SqlConsole';
 import ResultPanel from './components/ResultPanel';
 import * as sqlClient from './sqlClient';
 
+const SIDEBAR_MIN = 180;
+const SIDEBAR_MAX = 560;
+const CONSOLE_MIN = 120;
+
 export default {
   components: { ConnectionTree, SqlConsole, ResultPanel },
   data() {
@@ -69,9 +82,27 @@ export default {
       result: null,
       structure: [],
       primaryKeys: [],
+      hintTables: {},
       message: '',
       queryLoading: false,
+      sidebarWidth: 264,
+      consoleHeight: 270,
+      resizing: null,
     };
+  },
+  created() {
+    try {
+      const sw = parseInt(window.localStorage.getItem('sqlui_sidebar_width'), 10);
+      const ch = parseInt(window.localStorage.getItem('sqlui_console_height'), 10);
+      if (sw >= SIDEBAR_MIN && sw <= SIDEBAR_MAX) {
+        this.sidebarWidth = sw;
+      }
+      if (ch >= CONSOLE_MIN) {
+        this.consoleHeight = ch;
+      }
+    } catch (e) {
+      // localStorage may be unavailable (private mode); ignore.
+    }
   },
   mounted() {
     sqlClient.getConnections().then((list) => {
@@ -81,6 +112,52 @@ export default {
     });
   },
   methods: {
+    clamp(value, min, max) {
+      return Math.max(min, Math.min(max, value));
+    },
+    startResize(kind, e) {
+      this.resizing = kind;
+      this._resizeStartSize = kind === 'sidebar' ? this.sidebarWidth : this.consoleHeight;
+      this._resizeStartX = e.clientX;
+      this._resizeStartY = e.clientY;
+      window.addEventListener('mousemove', this.onResizeMove);
+      window.addEventListener('mouseup', this.stopResize);
+      document.body.style.cursor = kind === 'sidebar' ? 'col-resize' : 'row-resize';
+      document.body.style.userSelect = 'none';
+    },
+    onResizeMove(e) {
+      if (!this.resizing) {
+        return;
+      }
+      if (this.resizing === 'sidebar') {
+        this.sidebarWidth = this.clamp(this._resizeStartSize + (e.clientX - this._resizeStartX), SIDEBAR_MIN, SIDEBAR_MAX);
+      } else {
+        this.consoleHeight = this.clamp(
+          this._resizeStartSize + (e.clientY - this._resizeStartY),
+          CONSOLE_MIN,
+          window.innerHeight - 220,
+        );
+      }
+      if (this.$refs.resultPanel && this.$refs.resultPanel.recalculate) {
+        this.$refs.resultPanel.recalculate();
+      }
+    },
+    stopResize() {
+      if (!this.resizing) {
+        return;
+      }
+      this.resizing = null;
+      window.removeEventListener('mousemove', this.onResizeMove);
+      window.removeEventListener('mouseup', this.stopResize);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      try {
+        window.localStorage.setItem('sqlui_sidebar_width', String(this.sidebarWidth));
+        window.localStorage.setItem('sqlui_console_height', String(this.consoleHeight));
+      } catch (e) {
+        // ignore
+      }
+    },
     openTable(payload) {
       const { connection, table } = payload;
       const database = payload.database || '';
@@ -93,12 +170,24 @@ export default {
         sqlClient.getColumns(connection.id, database, table),
         sqlClient.getTableData(connection.id, database, table, 1000),
         sqlClient.getPrimaryKeys(connection.id, database, table).catch(() => []),
-      ]).then(([cols, data, keys]) => {
+        sqlClient.getTables(connection.id, database).catch(() => []),
+      ]).then(([cols, data, keys, tableList]) => {
         this.structure = Array.isArray(cols) ? cols : [];
         this.result = data;
         this.primaryKeys = Array.isArray(keys) ? keys : [];
         this.message = '';
         this.queryLoading = false;
+
+        // SQL autocomplete: all tables in the database (columns for the
+        // currently selected table only, to avoid N metadata requests).
+        const hint = {};
+        (Array.isArray(tableList) ? tableList : []).forEach((t) => {
+          hint[t] = null;
+        });
+        if (this.structure.length) {
+          hint[table] = this.structure.map((c) => c.name);
+        }
+        this.hintTables = hint;
       }).catch((e) => {
         this.queryLoading = false;
         this.structure = [];

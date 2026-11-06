@@ -23,6 +23,7 @@
 
           <div v-else-if="columns.length" class="grid-wrap">
             <vxe-table
+              ref="grid"
               :data="rows"
               size="mini"
               border
@@ -161,6 +162,13 @@ export default {
     },
   },
   methods: {
+    // Called by App while dragging the layout dividers so the virtual grid
+    // re-measures its new height.
+    recalculate() {
+      if (this.$refs.grid && this.$refs.grid.recalculate) {
+        this.$refs.grid.recalculate();
+      }
+    },
     fieldFromColumn(col, value, disabled) {
       const isNull = value === null || value === undefined;
       return {
