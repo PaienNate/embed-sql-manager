@@ -37,6 +37,7 @@ import 'codemirror/addon/hint/sql-hint';
 
 export default {
   props: {
+    value: { type: String, default: '' },
     connection: { type: Object, default: null },
     database: { type: String, default: '' },
     table: { type: String, default: '' },
@@ -58,6 +59,17 @@ export default {
     },
     table() {
       this.applyHintOptions();
+    },
+    value(val) {
+      if (!this.editor) {
+        return;
+      }
+      if (this.editor.getValue() === (val || '')) {
+        return;
+      }
+      this._syncing = true;
+      this.editor.setValue(val || '');
+      this._syncing = false;
     },
   },
   mounted() {
@@ -81,10 +93,15 @@ export default {
         'Cmd-Space': 'autocomplete',
       },
     });
-    this.editor.setValue('SELECT 1;');
+    this._syncing = false;
+    this.editor.setValue(this.value || 'SELECT 1;');
 
     // Show hints while typing a word (not on every keystroke of a symbol).
     this.editor.on('change', (cm) => {
+      if (this._syncing) {
+        return;
+      }
+      this.$emit('change', cm.getValue());
       if (cm.state.completionActive) {
         return;
       }

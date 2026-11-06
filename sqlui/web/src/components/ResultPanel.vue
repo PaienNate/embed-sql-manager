@@ -3,12 +3,24 @@
     <el-tabs v-model="activeTab" class="result-tabs">
       <el-tab-pane label="数据" name="data">
         <div class="result-pane">
-          <div v-if="table" class="result-toolbar">
-            <span class="result-table-name"><i class="fa fa-table"></i>{{ table.table }}</span>
+          <div v-if="table || columns.length" class="result-toolbar">
+            <span class="result-table-name">
+              <i class="fa fa-table"></i>{{ table ? table.table : '查询结果' }}
+            </span>
             <span v-if="result && result.truncated" class="result-warn">仅显示前 {{ rows.length }} 行</span>
+            <span v-if="columns.length" class="result-count">{{ rows.length }} 行</span>
             <span class="spacer"></span>
-            <el-button size="mini" @click="$emit('refresh')">
+            <el-button v-if="table" size="mini" @click="$emit('refresh')">
               <i class="fa fa-refresh"></i> 刷新
+            </el-button>
+            <el-button v-if="columns.length" size="mini" @click="exportCSV">
+              <i class="fa fa-download"></i> CSV
+            </el-button>
+            <el-button v-if="columns.length" size="mini" @click="exportJSON">
+              <i class="fa fa-download"></i> JSON
+            </el-button>
+            <el-button size="mini" @click="pickImport">
+              <i class="fa fa-upload"></i> 导入数据
             </el-button>
           </div>
 
@@ -48,6 +60,9 @@
           <div v-else class="empty-state">
             <i class="fa fa-table"></i>
             <p>选择左侧的表，或在上方执行 SQL</p>
+            <el-button size="mini" @click="pickImport">
+              <i class="fa fa-upload"></i> 导入本地数据
+            </el-button>
           </div>
         </div>
       </el-tab-pane>
@@ -71,11 +86,25 @@
         <pre class="message-box">{{ message || '暂无消息' }}</pre>
       </el-tab-pane>
     </el-tabs>
+    <input
+      ref="dataFile"
+      type="file"
+      accept=".csv,.json,text/csv,application/json"
+      style="display:none"
+      @change="onImportFile">
   </div>
 </template>
 
 <script>
 import { VxeTable, VxeColumn } from 'vxe-table';
+import {
+  downloadText,
+  readFileText,
+  parseCSV,
+  parseJSONResult,
+  toCSV,
+  toJSON,
+} from '../lib/file';
 
 export default {
   components: { VxeTable, VxeColumn },
@@ -121,6 +150,52 @@ export default {
       if (this.$refs.grid && this.$refs.grid.recalculate) {
         this.$refs.grid.recalculate();
       }
+    },
+    exportCSV() {
+      if (!this.columns.length) {
+        return;
+      }
+      const name = this.table ? this.table.table : 'query';
+      const csv = '\ufeff' + toCSV(this.columns.map((c) => c.name), this.rows);
+      downloadText(csv, name + '.csv', 'text/csv;charset=utf-8');
+    },
+    exportJSON() {
+      if (!this.columns.length) {
+        return;
+      }
+      const name = this.table ? this.table.table : 'query';
+      downloadText(
+        toJSON(this.columns.map((c) => c.name), this.rows),
+        name + '.json',
+        'application/json;charset=utf-8',
+      );
+    },
+    pickImport() {
+      if (!this.$refs.dataFile) {
+        return;
+      }
+      this.$refs.dataFile.value = '';
+      this.$refs.dataFile.click();
+    },
+    onImportFile(e) {
+      const file = e.target.files && e.target.files[0];
+      if (!file) {
+        return;
+      }
+      readFileText(file).then((text) => {
+        let parsed;
+        if (/\.json$/i.test(file.name)) {
+          parsed = parseJSONResult(text);
+        } else if (/\.csv$/i.test(file.name)) {
+          parsed = parseCSV(text);
+        } else {
+          parsed = /^\s*[\[{]/.test(text) ? parseJSONResult(text) : parseCSV(text);
+        }
+        this.$emit('imported', parsed);
+        this.$message.success('已导入本地数据（只读）');
+      }).catch((err) => {
+        this.$message.error(err.message || String(err));
+      });
     },
   },
 };

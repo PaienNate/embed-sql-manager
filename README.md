@@ -7,9 +7,11 @@
 ## 特性
 
 - **注入式连接**：`Config.Connections` 静态注册，和 `embedRedisClient` 一致；没有“新建连接”入口。
-- **左侧树**：连接 → 数据库 → 表（懒加载）。
-- **右上 SQL 控制台**：CodeMirror 5 SQL 模式，Ctrl+Enter 执行。
+- **左侧树**：连接 → 数据库 → 表（懒加载）；选中数据源/库即加载表名补全。
+- **多查询页签**：Navicat 风格，新建/关闭/切换，每个页签独立 SQL；新建页签继承当前数据源，SQL 持久化到 localStorage。
+- **右上 SQL 控制台**：CodeMirror 5 SQL 模式，Ctrl+Enter 执行，Ctrl+Space 补全（关键字/函数/表名/当前表列名）。
 - **右下结果区**：数据 / 结构 / 消息 三个 tab；数据网格最多 1000 行（可配）。默认 SQL 输入占 3/4、结果占 1/4，分隔条可拖动。
+- **导入导出**：SQL 文件导入为新页签、导出当前/全部查询；结果集导出 CSV/JSON，导入 CSV/JSON 作为只读本地数据查看。
 - **不做行级编辑**：增删改请在 SQL 控制台写 `INSERT` / `UPDATE` / `DELETE`（需实现 `ExecProvider`），避免各库兼容差异。
 - **只读降级**：未实现 `ExecProvider` 的连接，SQL 控制台拒绝非查询语句。
 - **IE11**：`@vitejs/plugin-legacy` 产出 ES5 legacy bundle。

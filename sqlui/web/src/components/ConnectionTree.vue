@@ -1,7 +1,10 @@
 <template>
   <div class="tree">
     <div v-for="conn in connections" :key="conn.id" class="tree-conn">
-      <div class="tree-row conn-row" @click="toggleConnection(conn)">
+      <div
+        class="tree-row conn-row"
+        :class="{ active: activeConnId === conn.id }"
+        @click="toggleConnection(conn)">
         <i :class="['fa', isConnOpen(conn) ? 'fa-chevron-down' : 'fa-chevron-right']"></i>
         <i class="fa fa-database"></i>
         <span class="tree-label" :title="conn.name">{{ conn.name }}</span>
@@ -10,7 +13,10 @@
       </div>
       <div v-if="isConnOpen(conn)" class="tree-children">
         <div v-for="db in databases[conn.id] || []" :key="db" class="tree-db">
-          <div class="tree-row db-row" @click="toggleDatabase(conn, db)">
+          <div
+            class="tree-row db-row"
+            :class="{ active: activeDbKey === dbKey(conn, db) }"
+            @click="toggleDatabase(conn, db)">
             <i :class="['fa', isDbOpen(conn, db) ? 'fa-chevron-down' : 'fa-chevron-right']"></i>
             <i :class="['fa', isDbOpen(conn, db) ? 'fa-folder-open' : 'fa-folder']"></i>
             <span class="tree-label" :title="db">{{ db || '(default)' }}</span>
@@ -22,8 +28,7 @@
               :key="table"
               class="tree-row table-row"
               :class="{ active: activeKey === tableKey(conn, db, table) }"
-              @click="selectTable(conn, db, table)"
-            >
+              @click="selectTable(conn, db, table)">
               <i class="fa fa-table"></i>
               <span class="tree-label" :title="table">{{ table }}</span>
             </div>
@@ -54,6 +59,8 @@ export default {
       databases: {},
       tables: {},
       loading: {},
+      activeConnId: '',
+      activeDbKey: '',
       activeKey: '',
     };
   },
@@ -70,14 +77,57 @@ export default {
     tableKey(conn, db, table) {
       return conn.id + '|' + db + '|' + table;
     },
+    maybeSelectSingleDatabase(conn) {
+      const dbs = this.databases[conn.id] || [];
+      if (dbs.length !== 1) {
+        return;
+      }
+      const db = dbs[0];
+      this.$set(this.expandedDb, this.dbKey(conn, db), true);
+      this.$emit('select-database', { connection: conn, database: db });
+      this.loadTables(conn, db);
+    },
+    loadTables(conn, db) {
+      const key = this.dbKey(conn, db);
+      if (this.tables[key]) {
+        this.$emit('tables-loaded', {
+          connection: conn,
+          database: db,
+          tables: this.tables[key],
+        });
+        return;
+      }
+      if (this.loading[key]) {
+        return;
+      }
+      this.$set(this.loading, key, true);
+      sqlClient.getTables(conn.id, db).then((list) => {
+        const tables = Array.isArray(list) ? list : [];
+        this.$set(this.tables, key, tables);
+        this.$set(this.loading, key, false);
+        this.$emit('tables-loaded', { connection: conn, database: db, tables });
+      }).catch((e) => {
+        this.$set(this.loading, key, false);
+        this.$message.error(e.message);
+      });
+    },
     toggleConnection(conn) {
       const open = this.isConnOpen(conn);
       this.$set(this.expandedConn, conn.id, !open);
-      if (!open && !this.databases[conn.id] && !this.loading[conn.id]) {
+      this.activeConnId = conn.id;
+      this.activeDbKey = '';
+      this.$emit('select-connection', { connection: conn });
+      if (this.databases[conn.id]) {
+        this.maybeSelectSingleDatabase(conn);
+        return;
+      }
+      if (!this.loading[conn.id]) {
         this.$set(this.loading, conn.id, true);
         sqlClient.getDatabases(conn.id).then((dbs) => {
-          this.$set(this.databases, conn.id, Array.isArray(dbs) ? dbs : []);
+          const list = Array.isArray(dbs) ? dbs : [];
+          this.$set(this.databases, conn.id, list);
           this.$set(this.loading, conn.id, false);
+          this.maybeSelectSingleDatabase(conn);
         }).catch((e) => {
           this.$set(this.loading, conn.id, false);
           this.$message.error(e.message);
@@ -88,18 +138,14 @@ export default {
       const key = this.dbKey(conn, db);
       const open = this.isDbOpen(conn, db);
       this.$set(this.expandedDb, key, !open);
-      if (!open && !this.tables[key] && !this.loading[key]) {
-        this.$set(this.loading, key, true);
-        sqlClient.getTables(conn.id, db).then((list) => {
-          this.$set(this.tables, key, Array.isArray(list) ? list : []);
-          this.$set(this.loading, key, false);
-        }).catch((e) => {
-          this.$set(this.loading, key, false);
-          this.$message.error(e.message);
-        });
-      }
+      this.activeConnId = conn.id;
+      this.activeDbKey = key;
+      this.$emit('select-database', { connection: conn, database: db });
+      this.loadTables(conn, db);
     },
     selectTable(conn, db, table) {
+      this.activeConnId = conn.id;
+      this.activeDbKey = this.dbKey(conn, db);
       this.activeKey = this.tableKey(conn, db, table);
       this.$emit('select-table', { connection: conn, database: db, table });
     },
