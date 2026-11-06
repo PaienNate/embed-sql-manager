@@ -9,8 +9,8 @@
 - **注入式连接**：`Config.Connections` 静态注册，和 `embedRedisClient` 一致；没有“新建连接”入口。
 - **左侧树**：连接 → 数据库 → 表（懒加载）。
 - **右上 SQL 控制台**：CodeMirror 5 SQL 模式，Ctrl+Enter 执行。
-- **右下结果区**：数据 / 结构 / 消息 三个 tab；数据网格最多 1000 行（可配）。
-- **行编辑**：实现了 `RowEditor` 即可编辑/新增/删除；无主键的表自动禁用更新/删除。
+- **右下结果区**：数据 / 结构 / 消息 三个 tab；数据网格最多 1000 行（可配）。默认 SQL 输入占 3/4、结果占 1/4，分隔条可拖动。
+- **不做行级编辑**：增删改请在 SQL 控制台写 `INSERT` / `UPDATE` / `DELETE`（需实现 `ExecProvider`），避免各库兼容差异。
 - **只读降级**：未实现 `ExecProvider` 的连接，SQL 控制台拒绝非查询语句。
 - **IE11**：`@vitejs/plugin-legacy` 产出 ES5 legacy bundle。
 
@@ -68,17 +68,9 @@ type Provider interface {
 可选接口：
 
 ```go
-// 没实现 = SQL 控制台只读
+// 没实现 = SQL 控制台只读（只能 SELECT/WITH/SHOW/...）
 type ExecProvider interface {
     ExecSQL(ctx context.Context, sql string) (ExecResult, error)
-}
-
-// 没实现 = 数据网格不可编辑
-type RowEditor interface {
-    PrimaryKeys(ctx context.Context, database, table string) ([]string, error)
-    UpdateRow(ctx context.Context, database, table string, pk, changes map[string]any) (int64, error)
-    InsertRow(ctx context.Context, database, table string, values map[string]any) (int64, error)
-    DeleteRow(ctx context.Context, database, table string, pk map[string]any) (int64, error)
 }
 ```
 
@@ -101,7 +93,7 @@ func (p provider) SelectTable(ctx context.Context, db, table string, limit int) 
     if err != nil { return nil, err }
     return gdb.Table(table).Limit(limit).Rows()
 }
-// 可选：ExecSQL 用 gdb.Exec；RowEditor 用 gdb.Table(...).Updates/Create/Delete
+// 可选：ExecSQL 用 gdb.Exec（否则控制台只读）
 ```
 
 启动时把 `DatabaseManager.GetSourceList()` 转成 `[]sqlui.Connection` 静态注册即可。
@@ -116,8 +108,6 @@ func (p provider) SelectTable(ctx context.Context, db, table string, limit int) 
 | GET | `{prefix}/api/sql/{id}/columns?database=&table=` | 列结构 |
 | GET | `{prefix}/api/sql/{id}/table-data?database=&table=&limit=` | 表数据（≤1000 行） |
 | POST | `{prefix}/api/sql/{id}/query` | 执行 SQL |
-| GET | `{prefix}/api/sql/{id}/primary-keys?database=&table=` | 主键列表（行编辑用） |
-| POST | `{prefix}/api/sql/{id}/row` | 行增删改 |
 
 ## 构建与测试
 

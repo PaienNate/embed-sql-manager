@@ -52,19 +52,3 @@ export function getTableData(connID, database, table, limit) {
 export function query(connID, sql) {
   return http('post', `/sql/${enc(connID)}/query`, { sql });
 }
-
-export function getPrimaryKeys(connID, database, table) {
-  return http('get', `/sql/${enc(connID)}/primary-keys?database=${enc(database)}&table=${enc(table)}`);
-}
-
-export function updateRow(connID, database, table, pk, changes) {
-  return http('post', `/sql/${enc(connID)}/row`, { action: 'update', database, table, pk, changes });
-}
-
-export function insertRow(connID, database, table, values) {
-  return http('post', `/sql/${enc(connID)}/row`, { action: 'insert', database, table, values });
-}
-
-export function deleteRow(connID, database, table, pk) {
-  return http('post', `/sql/${enc(connID)}/row`, { action: 'delete', database, table, pk });
-}

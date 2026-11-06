@@ -27,19 +27,10 @@ type Provider interface {
 }
 
 // ExecProvider is optional: it enables INSERT/UPDATE/DELETE/DDL from the SQL
-// console. Without it the console is read-only.
+// console. Without it the console is read-only. Row-level editing is not part
+// of this library on purpose; users write INSERT/UPDATE/DELETE in the console.
 type ExecProvider interface {
 	ExecSQL(ctx context.Context, sql string) (ExecResult, error)
-}
-
-// RowEditor is optional: it enables the data grid's row editing. Update/delete
-// require the table to have a primary key; the provider should return
-// ErrNoPrimaryKey (or an equivalent error) when it cannot identify one.
-type RowEditor interface {
-	PrimaryKeys(ctx context.Context, database, table string) ([]string, error)
-	UpdateRow(ctx context.Context, database, table string, pk, changes map[string]any) (int64, error)
-	InsertRow(ctx context.Context, database, table string, values map[string]any) (int64, error)
-	DeleteRow(ctx context.Context, database, table string, pk map[string]any) (int64, error)
 }
 
 // Connection is one host-registered data source.
@@ -72,13 +63,11 @@ type ExecResult struct {
 
 // Capabilities tells the UI which optional interfaces the provider implements.
 type Capabilities struct {
-	Query   bool `json:"query"`
-	Exec    bool `json:"exec"`
-	Editing bool `json:"editing"`
+	Query bool `json:"query"`
+	Exec  bool `json:"exec"`
 }
 
 func capabilitiesOf(p Provider) Capabilities {
 	_, exec := p.(ExecProvider)
-	_, edit := p.(RowEditor)
-	return Capabilities{Query: true, Exec: exec, Editing: edit}
+	return Capabilities{Query: true, Exec: exec}
 }

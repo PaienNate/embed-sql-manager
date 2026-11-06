@@ -34,10 +34,7 @@
           :message="message"
           :loading="queryLoading"
           :table="activeTable"
-          :capabilities="activeCaps"
-          :primary-keys="primaryKeys"
           @refresh="reloadTable"
-          @row-saved="reloadTable"
         />
       </div>
 
@@ -78,10 +75,8 @@ export default {
       activeConnection: null,
       activeDatabase: '',
       activeTable: null,
-      activeCaps: { query: true, exec: false, editing: false },
       result: null,
       structure: [],
-      primaryKeys: [],
       hintTables: {},
       message: '',
       queryLoading: false,
@@ -99,6 +94,10 @@ export default {
       }
       if (ch >= CONSOLE_MIN) {
         this.consoleHeight = ch;
+      } else {
+        // Default: SQL console takes 3/4 of the main area, results 1/4.
+        const available = (window.innerHeight || 900) - 34; // statusbar + dividers
+        this.consoleHeight = Math.max(CONSOLE_MIN, Math.round(available * 0.75));
       }
     } catch (e) {
       // localStorage may be unavailable (private mode); ignore.
@@ -135,7 +134,7 @@ export default {
         this.consoleHeight = this.clamp(
           this._resizeStartSize + (e.clientY - this._resizeStartY),
           CONSOLE_MIN,
-          window.innerHeight - 220,
+          window.innerHeight - 140,
         );
       }
       if (this.$refs.resultPanel && this.$refs.resultPanel.recalculate) {
@@ -164,17 +163,14 @@ export default {
       this.activeConnection = connection;
       this.activeDatabase = database;
       this.activeTable = { connection, database, table };
-      this.activeCaps = connection.capabilities || { query: true, exec: false, editing: false };
       this.queryLoading = true;
       Promise.all([
         sqlClient.getColumns(connection.id, database, table),
         sqlClient.getTableData(connection.id, database, table, 1000),
-        sqlClient.getPrimaryKeys(connection.id, database, table).catch(() => []),
         sqlClient.getTables(connection.id, database).catch(() => []),
-      ]).then(([cols, data, keys, tableList]) => {
+      ]).then(([cols, data, tableList]) => {
         this.structure = Array.isArray(cols) ? cols : [];
         this.result = data;
-        this.primaryKeys = Array.isArray(keys) ? keys : [];
         this.message = '';
         this.queryLoading = false;
 
@@ -191,7 +187,6 @@ export default {
       }).catch((e) => {
         this.queryLoading = false;
         this.structure = [];
-        this.primaryKeys = [];
         this.result = null;
         this.message = e.message;
         this.$message.error(e.message);
@@ -219,13 +214,11 @@ export default {
         }
         this.activeTable = null;
         this.structure = [];
-        this.primaryKeys = [];
       }).catch((e) => {
         this.queryLoading = false;
         this.result = null;
         this.activeTable = null;
         this.structure = [];
-        this.primaryKeys = [];
         this.message = e.message;
         this.$message.error(e.message);
       });

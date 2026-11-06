@@ -3,10 +3,6 @@ package main
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
-	"fmt"
-	"math"
-	"sort"
 	"strings"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -156,124 +152,6 @@ func (p *sqliteProvider) ExecSQL(ctx context.Context, sqlText string) (sqlui.Exe
 	return sqlui.ExecResult{RowsAffected: n, LastInsertID: id}, nil
 }
 
-func (p *sqliteProvider) PrimaryKeys(ctx context.Context, _, table string) ([]string, error) {
-	rows, err := p.db.QueryContext(ctx, "PRAGMA table_info("+quoteIdent(table)+")")
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = rows.Close() }()
-	var keys []string
-	for rows.Next() {
-		var (
-			cid     int
-			name    string
-			typ     string
-			notNull int
-			dflt    sql.NullString
-			pk      int
-		)
-		if err := rows.Scan(&cid, &name, &typ, &notNull, &dflt, &pk); err != nil {
-			return nil, err
-		}
-		if pk > 0 {
-			keys = append(keys, name)
-		}
-	}
-	return keys, rows.Err()
-}
-
-func (p *sqliteProvider) UpdateRow(ctx context.Context, _, table string, pk, changes map[string]any) (int64, error) {
-	if len(changes) == 0 {
-		return 0, fmt.Errorf("no changes")
-	}
-	cols := sortedKeys(changes)
-	sets := make([]string, 0, len(cols))
-	args := make([]any, 0, len(cols)+len(pk))
-	for _, c := range cols {
-		sets = append(sets, quoteIdent(c)+" = ?")
-		args = append(args, toArg(changes[c]))
-	}
-	pkCols := sortedKeys(pk)
-	where := make([]string, 0, len(pkCols))
-	for _, c := range pkCols {
-		where = append(where, quoteIdent(c)+" = ?")
-		args = append(args, toArg(pk[c]))
-	}
-	q := "UPDATE " + quoteIdent(table) + " SET " + strings.Join(sets, ", ") +
-		" WHERE " + strings.Join(where, " AND ")
-	res, err := p.db.ExecContext(ctx, q, args...)
-	if err != nil {
-		return 0, err
-	}
-	n, _ := res.RowsAffected()
-	return n, nil
-}
-
-func (p *sqliteProvider) InsertRow(ctx context.Context, _, table string, values map[string]any) (int64, error) {
-	cols := sortedKeys(values)
-	quoted := make([]string, len(cols))
-	marks := make([]string, len(cols))
-	args := make([]any, 0, len(cols))
-	for i, c := range cols {
-		quoted[i] = quoteIdent(c)
-		marks[i] = "?"
-		args = append(args, toArg(values[c]))
-	}
-	q := "INSERT INTO " + quoteIdent(table) + " (" + strings.Join(quoted, ", ") + ") VALUES (" + strings.Join(marks, ", ") + ")"
-	res, err := p.db.ExecContext(ctx, q, args...)
-	if err != nil {
-		return 0, err
-	}
-	id, _ := res.LastInsertId()
-	return id, nil
-}
-
-func (p *sqliteProvider) DeleteRow(ctx context.Context, _, table string, pk map[string]any) (int64, error) {
-	pkCols := sortedKeys(pk)
-	where := make([]string, 0, len(pkCols))
-	args := make([]any, 0, len(pkCols))
-	for _, c := range pkCols {
-		where = append(where, quoteIdent(c)+" = ?")
-		args = append(args, toArg(pk[c]))
-	}
-	q := "DELETE FROM " + quoteIdent(table) + " WHERE " + strings.Join(where, " AND ")
-	res, err := p.db.ExecContext(ctx, q, args...)
-	if err != nil {
-		return 0, err
-	}
-	n, _ := res.RowsAffected()
-	return n, nil
-}
-
 func quoteIdent(s string) string {
 	return `"` + strings.ReplaceAll(s, `"`, `""`) + `"`
-}
-
-func sortedKeys(m map[string]any) []string {
-	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	return keys
-}
-
-func toArg(v any) any {
-	switch x := v.(type) {
-	case json.Number:
-		if i, err := x.Int64(); err == nil {
-			return i
-		}
-		if f, err := x.Float64(); err == nil {
-			return f
-		}
-		return x.String()
-	case float64:
-		if x == math.Trunc(x) && math.Abs(x) < 1<<53 {
-			return int64(x)
-		}
-		return x
-	default:
-		return v
-	}
 }

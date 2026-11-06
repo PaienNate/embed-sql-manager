@@ -30,8 +30,8 @@ cd sqlui/web && npm install && npm run subset-icons && npm run build
 1. **核心不 import 驱动/GORM/sqlex**：数据库差异由宿主的 `Provider` 实现。`go.mod` 里的 `mattn/go-sqlite3` 只服务 `example/`。
 2. **`dist/` 提交进仓库**：`//go:embed all:web/dist` 在编译期读取；改前端后必须重建 dist 并提交。
 3. **`ExecuteSQL(ctx, sql)` 签名**与 `sys_api_service` 的 `QueryExecutor` 一致；SQL 控制台按数据源当前库执行，树里的 database 只影响元数据和 `SelectTable`。
-4. **`SelectTable` 必须实现**（表预览）；`ExecProvider`、`RowEditor` 可选，未实现时前端按 `capabilities` 降级。
-5. **行编辑要求主键**：`RowEditor.PrimaryKeys` 返回空时前端禁用更新/删除；`rowsAffected == 0` 视为并发冲突。
+4. **`SelectTable` 必须实现**（表预览）；`ExecProvider` 可选，未实现时 SQL 控制台只读。
+5. **不做行级编辑**：数据网格只读；增删改用 SQL 控制台写语句，避免各库主键/占位符/类型差异。
 6. **`MaxRows` 默认 1000**：`readRows` 读满即 `truncated`；不要把大结果集一次性塞进内存。
 7. **不暴露凭据**：接口不传 DSN/password；`Connection.Type` 只用于显示。
 8. **IE11**：Vite legacy 构建；避免 CSS 变量作为关键布局、flex `gap` 作为关键间距；图标走 `scripts/subset-fontawesome.js` 子集流程。

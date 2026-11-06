@@ -383,35 +383,6 @@ body {
   background: #fafafa;
 }
 
-.danger-text {
-  color: #dc2626 !important;
-}
-
-.field-type {
-  margin-left: 8px;
-  font-size: 11px;
-  color: #9ca3af;
-}
-
-.dialog-fields {
-  max-height: 60vh;
-  overflow: auto;
-  padding-right: 6px;
-}
-
-.dialog-field-row {
-  display: flex;
-  align-items: center;
-}
-
-.dialog-field-row .el-input {
-  flex: 1;
-}
-
-.dialog-field-row .el-checkbox {
-  margin-right: 8px;
-}
-
 .fa-spin {
   animation: sqlui-spin 1s infinite linear;
 }

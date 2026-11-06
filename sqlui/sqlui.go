@@ -99,8 +99,6 @@ func Register(mux *http.ServeMux, cfg Config) error {
 	mux.Handle("GET "+prefix+"/api/sql/{connID}/columns", s.wrap(http.HandlerFunc(s.handleColumns)))
 	mux.Handle("GET "+prefix+"/api/sql/{connID}/table-data", s.wrap(http.HandlerFunc(s.handleTableData)))
 	mux.Handle("POST "+prefix+"/api/sql/{connID}/query", s.wrap(http.HandlerFunc(s.handleQuery)))
-	mux.Handle("GET "+prefix+"/api/sql/{connID}/primary-keys", s.wrap(http.HandlerFunc(s.handlePrimaryKeys)))
-	mux.Handle("POST "+prefix+"/api/sql/{connID}/row", s.wrap(http.HandlerFunc(s.handleRow)))
 
 	// SPA catch-all. It is less specific than the API patterns above, so API
 	// requests are unaffected.

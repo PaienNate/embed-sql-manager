@@ -7,10 +7,7 @@
             <span class="result-table-name"><i class="fa fa-table"></i>{{ table.table }}</span>
             <span v-if="result && result.truncated" class="result-warn">仅显示前 {{ rows.length }} 行</span>
             <span class="spacer"></span>
-            <el-button v-if="canInsert" size="mini" @click="openInsert">
-              <i class="fa fa-plus"></i> 新增行
-            </el-button>
-            <el-button v-if="table" size="mini" @click="$emit('refresh')">
+            <el-button size="mini" @click="$emit('refresh')">
               <i class="fa fa-refresh"></i> 刷新
             </el-button>
           </div>
@@ -45,12 +42,6 @@
                   <span v-else>{{ row[i] }}</span>
                 </template>
               </vxe-column>
-              <vxe-column v-if="canEdit" title="操作" width="120" fixed="right">
-                <template #default="{ row, rowIndex }">
-                  <el-button type="text" size="mini" @click.stop="openEdit(row, rowIndex)">编辑</el-button>
-                  <el-button type="text" size="mini" class="danger-text" @click.stop="removeRow(row)">删除</el-button>
-                </template>
-              </vxe-column>
             </vxe-table>
           </div>
 
@@ -80,34 +71,11 @@
         <pre class="message-box">{{ message || '暂无消息' }}</pre>
       </el-tab-pane>
     </el-tabs>
-
-    <el-dialog
-      :title="dialogMode === 'insert' ? '新增行' : '编辑行'"
-      :visible.sync="dialogVisible"
-      width="680px"
-      append-to-body>
-      <div class="dialog-fields">
-        <el-form label-width="150px" size="mini">
-          <el-form-item v-for="f in dialogFields" :key="f.name" :label="f.name">
-            <div class="dialog-field-row">
-              <el-checkbox v-model="f.isNull" :disabled="f.disabled" @change="f.touched = true">NULL</el-checkbox>
-              <el-input v-model="f.value" :disabled="f.isNull || f.disabled" @input="f.touched = true"></el-input>
-              <span class="field-type">{{ f.type }}</span>
-            </div>
-          </el-form-item>
-        </el-form>
-      </div>
-      <span slot="footer">
-        <el-button size="mini" @click="dialogVisible = false">取消</el-button>
-        <el-button size="mini" type="primary" :loading="saving" @click="saveDialog">保存</el-button>
-      </span>
-    </el-dialog>
   </div>
 </template>
 
 <script>
 import { VxeTable, VxeColumn } from 'vxe-table';
-import * as sqlClient from '../sqlClient';
 
 export default {
   components: { VxeTable, VxeColumn },
@@ -117,18 +85,10 @@ export default {
     message: { type: String, default: '' },
     loading: { type: Boolean, default: false },
     table: { type: Object, default: null },
-    capabilities: { type: Object, default: () => ({ query: true, exec: false, editing: false }) },
-    primaryKeys: { type: Array, default: () => [] },
   },
   data() {
     return {
       activeTab: 'data',
-      dialogVisible: false,
-      dialogMode: 'update',
-      dialogFields: [],
-      dialogOriginal: null,
-      dialogRowIndex: -1,
-      saving: false,
     };
   },
   computed: {
@@ -140,13 +100,6 @@ export default {
     },
     isExecResult() {
       return !!(this.result && this.result.rowsAffected !== undefined);
-    },
-    canInsert() {
-      return !!(this.table && this.capabilities && this.capabilities.editing);
-    },
-    canEdit() {
-      return !!(this.table && this.capabilities && this.capabilities.editing &&
-        this.primaryKeys && this.primaryKeys.length);
     },
   },
   watch: {
@@ -168,153 +121,6 @@ export default {
       if (this.$refs.grid && this.$refs.grid.recalculate) {
         this.$refs.grid.recalculate();
       }
-    },
-    fieldFromColumn(col, value, disabled) {
-      const isNull = value === null || value === undefined;
-      return {
-        name: col.name,
-        type: col.type || '',
-        value: isNull ? '' : String(value),
-        isNull,
-        touched: false,
-        disabled: !!disabled,
-      };
-    },
-    openInsert() {
-      const cols = this.columns.length ? this.columns : this.structure;
-      if (!cols.length) {
-        this.$message.warning('没有可用的列信息');
-        return;
-      }
-      this.dialogMode = 'insert';
-      this.dialogOriginal = null;
-      this.dialogRowIndex = -1;
-      this.dialogFields = cols.map((c) => this.fieldFromColumn(c, null, false));
-      this.dialogVisible = true;
-    },
-    openEdit(row, rowIndex) {
-      if (!this.columns.length) {
-        return;
-      }
-      this.dialogMode = 'update';
-      this.dialogOriginal = row.slice();
-      this.dialogRowIndex = rowIndex;
-      this.dialogFields = this.columns.map((c, i) => {
-        const isPK = this.primaryKeys.indexOf(c.name) >= 0;
-        return this.fieldFromColumn(c, row[i], isPK);
-      });
-      this.dialogVisible = true;
-    },
-    buildPK(row) {
-      const pk = {};
-      this.primaryKeys.forEach((name) => {
-        const idx = this.columns.findIndex((c) => c.name === name);
-        if (idx >= 0) {
-          pk[name] = row[idx];
-        }
-      });
-      return pk;
-    },
-    saveDialog() {
-      if (!this.table) {
-        return;
-      }
-      const connID = this.table.connection.id;
-      const database = this.table.database || '';
-      const table = this.table.table;
-
-      if (this.dialogMode === 'insert') {
-        const values = {};
-        let count = 0;
-        this.dialogFields.forEach((f) => {
-          if (!f.touched) {
-            return;
-          }
-          values[f.name] = f.isNull ? null : f.value;
-          count += 1;
-        });
-        if (!count) {
-          this.$message.warning('请至少填写一个字段');
-          return;
-        }
-        this.saving = true;
-        sqlClient.insertRow(connID, database, table, values).then(() => {
-          this.saving = false;
-          this.dialogVisible = false;
-          this.$message.success('新增成功');
-          this.$emit('row-saved');
-        }).catch((e) => {
-          this.saving = false;
-          this.$message.error(e.message);
-        });
-        return;
-      }
-
-      const pk = this.buildPK(this.dialogOriginal);
-      if (!Object.keys(pk).length) {
-        this.$message.warning('该表没有主键，无法安全更新');
-        return;
-      }
-      const changes = {};
-      let count = 0;
-      this.dialogFields.forEach((f, i) => {
-        if (f.disabled || !f.touched) {
-          return;
-        }
-        const original = this.dialogOriginal[i];
-        const originalNull = original === null || original === undefined;
-        if (f.isNull !== originalNull) {
-          changes[f.name] = f.isNull ? null : f.value;
-          count += 1;
-        } else if (!f.isNull && String(original) !== f.value) {
-          changes[f.name] = f.value;
-          count += 1;
-        }
-      });
-      if (!count) {
-        this.dialogVisible = false;
-        return;
-      }
-      this.saving = true;
-      sqlClient.updateRow(connID, database, table, pk, changes).then((res) => {
-        this.saving = false;
-        this.dialogVisible = false;
-        if (res && res.rowsAffected === 0) {
-          this.$message.warning('没有行被更新（可能已被修改）');
-        } else {
-          this.$message.success('更新成功');
-        }
-        this.$emit('row-saved');
-      }).catch((e) => {
-        this.saving = false;
-        this.$message.error(e.message);
-      });
-    },
-    removeRow(row) {
-      if (!this.table || !this.canEdit) {
-        return;
-      }
-      const pk = this.buildPK(row);
-      if (!Object.keys(pk).length) {
-        this.$message.warning('该表没有主键，无法安全删除');
-        return;
-      }
-      this.$confirm('确定删除这一行？', '确认删除', { type: 'warning' }).then(() => {
-        const connID = this.table.connection.id;
-        const database = this.table.database || '';
-        return sqlClient.deleteRow(connID, database, this.table.table, pk);
-      }).then((res) => {
-        if (res && res.rowsAffected === 0) {
-          this.$message.warning('没有行被删除（可能已被修改）');
-        } else {
-          this.$message.success('删除成功');
-        }
-        this.$emit('row-saved');
-      }).catch((e) => {
-        if (e && e !== 'cancel' && e !== 'close') {
-          this.$message.error(e.message || String(e));
-        }
-      });
     },
   },
 };

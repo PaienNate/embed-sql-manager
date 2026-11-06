@@ -43,30 +43,6 @@ func (p *fakeExecProvider) ExecSQL(context.Context, string) (ExecResult, error) 
 	return p.result, nil
 }
 
-type fakeEditor struct {
-	fakeProvider
-	keys     []string
-	updated  bool
-	inserted bool
-	deleted  bool
-}
-
-func (p *fakeEditor) PrimaryKeys(context.Context, string, string) ([]string, error) {
-	return p.keys, nil
-}
-func (p *fakeEditor) UpdateRow(context.Context, string, string, map[string]any, map[string]any) (int64, error) {
-	p.updated = true
-	return 1, nil
-}
-func (p *fakeEditor) InsertRow(context.Context, string, string, map[string]any) (int64, error) {
-	p.inserted = true
-	return 42, nil
-}
-func (p *fakeEditor) DeleteRow(context.Context, string, string, map[string]any) (int64, error) {
-	p.deleted = true
-	return 1, nil
-}
-
 func mustRows(t *testing.T, rs *sqlmock.Rows) *sql.Rows {
 	t.Helper()
 	db, mock, err := sqlmock.New()
@@ -132,7 +108,7 @@ func TestConnectionsAndMetadata(t *testing.T) {
 	if len(conns) != 1 || conns[0].ID != "c1" || !conns[0].Capabilities.Query {
 		t.Fatalf("connections = %+v", conns)
 	}
-	if conns[0].Capabilities.Exec || conns[0].Capabilities.Editing {
+	if conns[0].Capabilities.Exec {
 		t.Fatalf("unexpected optional capabilities: %+v", conns[0].Capabilities)
 	}
 
@@ -218,33 +194,5 @@ func TestDisabledConnection404(t *testing.T) {
 	rec := request(t, mux, http.MethodGet, "/r/api/sql/c1/databases", "")
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("status = %d, want 404", rec.Code)
-	}
-}
-
-func TestRowEditing(t *testing.T) {
-	p := &fakeEditor{keys: []string{"id"}}
-	mux := newMux(t, p, 0, true)
-
-	keys := decode[[]string](t, request(t, mux, http.MethodGet, "/r/api/sql/c1/primary-keys?database=main&table=users", ""))
-	if len(keys) != 1 || keys[0] != "id" {
-		t.Fatalf("primary keys = %v", keys)
-	}
-
-	res := decode[map[string]any](t, request(t, mux, http.MethodPost, "/r/api/sql/c1/row",
-		`{"action":"update","database":"main","table":"users","pk":{"id":1},"changes":{"name":"x"}}`))
-	if res["rowsAffected"] != float64(1) || !p.updated {
-		t.Fatalf("update result = %+v, updated=%v", res, p.updated)
-	}
-
-	res = decode[map[string]any](t, request(t, mux, http.MethodPost, "/r/api/sql/c1/row",
-		`{"action":"insert","database":"main","table":"users","values":{"name":"y"}}`))
-	if res["lastInsertId"] != float64(42) || !p.inserted {
-		t.Fatalf("insert result = %+v, inserted=%v", res, p.inserted)
-	}
-
-	res = decode[map[string]any](t, request(t, mux, http.MethodPost, "/r/api/sql/c1/row",
-		`{"action":"delete","database":"main","table":"users","pk":{"id":1}}`))
-	if res["rowsAffected"] != float64(1) || !p.deleted {
-		t.Fatalf("delete result = %+v, deleted=%v", res, p.deleted)
 	}
 }
