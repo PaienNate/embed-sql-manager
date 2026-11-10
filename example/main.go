@@ -9,21 +9,36 @@ import (
 	"embedSqlClient/sqlui"
 )
 
-// Demo-only datacenterDB connection. The credentials are hardcoded in this
-// example on purpose; do not reuse them outside this local demo.
-const (
-	pgHost     = "YOUR_POSTGRES_HOST"
-	pgPort     = 5432
-	pgUser     = "postgres"
-	pgPassword = "YOUR_POSTGRES_PASSWORD"
-	pgDatabase = "YOUR_POSTGRES_DBNAME"
-	pgConfig   = "sslmode=disable search_path=YOUR_POSTGRES_SCHEMA TimeZone=Asia/Shanghai connect_timeout=10"
-)
-
+// The example's datacenterDB (PostgreSQL) connection reads its settings from
+// the environment, so no real host, database or password is committed. Set
+// POSTGRES_HOST (plus the optional POSTGRES_PORT / POSTGRES_USER /
+// POSTGRES_PASSWORD / POSTGRES_DBNAME / POSTGRES_CONFIG) to enable it. When
+// POSTGRES_HOST is empty the connection is skipped.
 func postgresDSN() string {
+	host := os.Getenv("POSTGRES_HOST")
+	if host == "" {
+		return "" // not configured -> datacenterDB disabled
+	}
+	port := os.Getenv("POSTGRES_PORT")
+	if port == "" {
+		port = "5432"
+	}
+	user := os.Getenv("POSTGRES_USER")
+	if user == "" {
+		user = "postgres"
+	}
+	password := os.Getenv("POSTGRES_PASSWORD")
+	database := os.Getenv("POSTGRES_DBNAME")
+	if database == "" {
+		database = "postgres"
+	}
+	config := os.Getenv("POSTGRES_CONFIG")
+	if config == "" {
+		config = "sslmode=disable connect_timeout=10"
+	}
 	return fmt.Sprintf(
-		"host=%s port=%d user=%s password=%s dbname=%s %s",
-		pgHost, pgPort, pgUser, pgPassword, pgDatabase, pgConfig,
+		"host=%s port=%s user=%s password=%s dbname=%s %s",
+		host, port, user, password, database, config,
 	)
 }
 
@@ -52,19 +67,23 @@ func main() {
 		},
 	}
 
-	pg, err := openPostgres("datacenterDB", postgresDSN())
-	if err != nil {
-		log.Printf("open postgres: %v (datacenterDB disabled)", err)
+	if dsn := postgresDSN(); dsn == "" {
+		log.Println("postgres: POSTGRES_HOST not set (datacenterDB disabled)")
 	} else {
-		defer pg.Close()
-		connections = append(connections, sqlui.Connection{
-			ID:       "datacenterDB",
-			Name:     "datacenterDB",
-			Type:     "PostgreSQL",
-			Provider: pg,
-			Enabled:  true,
-		})
-		log.Printf("registered datacenterDB (%s/%s, search_path from config)", pgHost, pgDatabase)
+		pg, err := openPostgres("datacenterDB", dsn)
+		if err != nil {
+			log.Printf("open postgres: %v (datacenterDB disabled)", err)
+		} else {
+			defer pg.Close()
+			connections = append(connections, sqlui.Connection{
+				ID:       "datacenterDB",
+				Name:     "datacenterDB",
+				Type:     "PostgreSQL",
+				Provider: pg,
+				Enabled:  true,
+			})
+			log.Println("registered datacenterDB (PostgreSQL, connection from POSTGRES_* env)")
+		}
 	}
 
 	mux := http.NewServeMux()
